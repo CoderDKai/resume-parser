@@ -148,7 +148,8 @@ export class ImapClient {
           if (results.length === 0) {
             return resolve([]);
           }
-          const fetchUids = results.slice(0, limit);
+          const start = limit ? results.length - limit : 0;
+          const fetchUids = results.slice(start);
           const mails: Mail[] = [];
           const messagePromises: Promise<void>[] = [];
 
