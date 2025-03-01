@@ -149,65 +149,75 @@ export class ImapClient {
             return resolve([]);
           }
           const fetchUids = results.slice(0, limit);
+          const mails: Mail[] = [];
+          const messagePromises: Promise<void>[] = [];
+
           const f = this.imap.fetch(fetchUids, {
             bodies: '',
             struct: true,
-          })
-          const mails: Mail[] = [];
+          });
+
           f.on('message', (msg, seqNo) => {
             const mail: Partial<Mail> = {
               seqNo,
               attachments: [],
-            }
-            msg.on('body', (stream) => {
-              let buffer = Buffer.alloc(0);
-              stream.on('data', (chunk) => {
-                buffer = Buffer.concat([buffer, chunk]);
-              })
-              stream.once('end', async () => {
-                try {
-                  const parsed = await simpleParser(buffer);
-                  mail.uid = parsed.messageId ? fetchUids[mails.length] : seqNo;
-                  mail.headers = parsed.headers;
-                  mail.subject = parsed.subject || 'N/A';
-                  mail.from = parsed.from?.text || 'N/A';
-                  mail.to = parsed.to?.text || 'N/A';
-                  mail.date = parsed.date?.toISOString() || 'N/A';
-                  mail.text = parsed.text;
-                  mail.html = parsed.html;
+            };
 
-                  // 直接使用 simpleParser 的 attachments
-                  if (parsed.attachments) {
-                    mail.attachments = parsed.attachments.map(att => ({
-                      filename: att.filename,
-                      contentType: att.contentType,
-                      size: att.size,
-                      partID: undefined, // 不再需要 partID
-                      content: att.content // 直接获取内容
-                    }));
+            const messagePromise = new Promise<void>((resolveMessage) => {
+              msg.on('body', (stream) => {
+                let buffer = Buffer.alloc(0);
+                stream.on('data', (chunk) => {
+                  buffer = Buffer.concat([buffer, chunk]);
+                });
+                
+                stream.once('end', async () => {
+                  try {
+                    const parsed = await simpleParser(buffer);
+                    mail.uid = parsed.messageId ? fetchUids[mails.length] : seqNo;
+                    mail.headers = parsed.headers;
+                    mail.subject = parsed.subject || 'N/A';
+                    mail.from = parsed.from?.text || 'N/A';
+                    mail.to = parsed.to?.text || 'N/A';
+                    mail.date = parsed.date?.toISOString() || 'N/A';
+                    mail.text = parsed.text;
+                    mail.html = parsed.html;
+
+                    if (parsed.attachments) {
+                      mail.attachments = parsed.attachments.map(att => ({
+                        filename: att.filename,
+                        contentType: att.contentType,
+                        size: att.size,
+                        partID: undefined,
+                        content: att.content
+                      }));
+                    }
+                    mails.push(mail as Mail);
+                    resolveMessage();
+                  } catch (parseErr) {
+                    console.error(`解析邮件 #${seqNo} 失败:`, parseErr);
+                    resolveMessage(); // Even if parsing fails, we resolve to continue processing
                   }
-                  mails.push(mail as Mail); // 在解析完成时加入数组
-                } catch (parseErr) {
-                  console.error(`解析邮件 #${seqNo} 失败:`, parseErr);
-                }
+                });
               });
-            })
 
-            msg.on('attributes', (attrs) => {
-              mail.uid = attrs.uid;
-            })
+              msg.on('attributes', (attrs) => {
+                mail.uid = attrs.uid;
+              });
+            });
+
+            messagePromises.push(messagePromise);
           });
 
           f.once('error', reject);
           f.once('end', () => {
-            // 添加短暂延迟以确保所有消息都已处理
-            setTimeout(() => {
-              resolve(mails);
-            }, 1000);
+            // Wait for all messages to be processed
+            Promise.all(messagePromises)
+              .then(() => resolve(mails))
+              .catch(reject);
           });
-        })
-      })
-    })
+        });
+      });
+    });
   }
 
   // 下载邮件列表中的附件
