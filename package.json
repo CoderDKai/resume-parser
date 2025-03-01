@@ -12,7 +12,12 @@
     "dev:mail-server": "turbo run dev --filter=@resume-parser/mail-server",
     "add-dep:mail-server": "pnpm --filter=@resume-parser/mail-server add ",
     "add-dev-dep:mail-server": "pnpm --filter=@resume-parser/mail-server add -D ",
-    "remove-dep:mail-server": "pnpm --filter=@resume-parser/mail-server remove "
+    "remove-dep:mail-server": "pnpm --filter=@resume-parser/mail-server remove",
+    "start:pdf-processor": "turbo run start --filter=@resume-parser/pdf-processor",
+    "dev:pdf-processor": "turbo run dev --filter=@resume-parser/pdf-processor",
+    "add-dep:pdf-processor": "pnpm --filter=@resume-parser/pdf-processor add ",
+    "add-dev-dep:pdf-processor": "pnpm --filter=@resume-parser/pdf-processor add -D ",
+    "remove-dep:pdf-processor": "pnpm --filter=@resume-parser/pdf-processor remove "
   },
   "devDependencies": {
     "dotenv": "^16.4.7",
