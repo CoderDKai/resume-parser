@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "@types/imap": "^0.8.42",
-    "imap": "^0.8.19"
+    "imap": "^0.8.19",
+    "mailparser": "^3.7.2"
   }
 }
