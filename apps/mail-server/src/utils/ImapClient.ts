@@ -93,10 +93,11 @@ export class ImapClient {
     const { timeRange } = filterParams;
     const searchCriteria: any[] = ['ALL'];
     if (!timeRange) {
-      return searchCriteria
+      return searchCriteria;
     }
     const now = new Date();
     let sinceDate: Date;
+    let beforeDate: Date | undefined;
 
     // IMAP 日期格式：DD-MMM-YYYY
     const formatDate = (date: Date): string => {
@@ -105,30 +106,68 @@ export class ImapClient {
     };
 
     switch (timeRange) {
-      case 'today':
-        sinceDate = new Date(now.setHours(0, 0, 0, 0));
-        break;
-      case 'yesterday':
-        sinceDate = new Date(now.setDate(now.getDate() - 1));
+      case 'today': {
+        // 今天0点到明天0点
+        sinceDate = new Date(now);
         sinceDate.setHours(0, 0, 0, 0);
+        
+        beforeDate = new Date(now);
+        beforeDate.setDate(beforeDate.getDate() + 1);
+        beforeDate.setHours(0, 0, 0, 0);
         break;
-      case 'thisWeek':
-        sinceDate = new Date(now.setDate(now.getDate() - now.getDay())); // 周日开始
+      }
+      case 'yesterday': {
+        // 昨天0点到今天0点
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(0, 0, 0, 0);
+        sinceDate = yesterday;
+
+        beforeDate = new Date(now);
+        beforeDate.setHours(0, 0, 0, 0);
         break;
-      case 'last7days':
-        sinceDate = new Date(now.setDate(now.getDate() - 6)); // 包括今天
+      }
+      case 'thisWeek': {
+        // 本周日0点到下周日0点
+        sinceDate = new Date(now);
+        sinceDate.setDate(sinceDate.getDate() - sinceDate.getDay());
+        sinceDate.setHours(0, 0, 0, 0);
+
+        beforeDate = new Date(sinceDate);
+        beforeDate.setDate(beforeDate.getDate() + 7);
         break;
-      case 'thisMonth':
+      }
+      case 'last7days': {
+        // 7天前的0点到明天0点
+        sinceDate = new Date(now);
+        sinceDate.setDate(sinceDate.getDate() - 6);
+        sinceDate.setHours(0, 0, 0, 0);
+
+        beforeDate = new Date(now);
+        beforeDate.setDate(beforeDate.getDate() + 1);
+        beforeDate.setHours(0, 0, 0, 0);
+        break;
+      }
+      case 'thisMonth': {
+        // 本月1号0点到下月1号0点
         sinceDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        beforeDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         break;
-      case 'lastMonth':
+      }
+      case 'lastMonth': {
+        // 上月1号0点到本月1号0点
         sinceDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        beforeDate = new Date(now.getFullYear(), now.getMonth(), 1);
         break;
+      }
       default:
         throw new Error('无效的时间范围');
     }
 
     searchCriteria.push(['SINCE', formatDate(sinceDate)]);
+    if (beforeDate) {
+      searchCriteria.push(['BEFORE', formatDate(beforeDate)]);
+    }
     return searchCriteria;
   }
 
