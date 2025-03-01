@@ -262,15 +262,42 @@ export class ImapClient {
 
   // 下载邮件列表中的附件
   // 修改 downloadAttachments，使用解析后的附件内容
-  public async downloadAttachments(mails: Mail[], outputDir: string = './attachments'): Promise<void> {
+  public async downloadAttachments(mails: Mail[], config: {
+    outputDir: string;
+    needClassified: boolean;
+  } = {
+    outputDir: './attachments',
+    needClassified: true,
+  }): Promise<void> {
+    const { outputDir, needClassified } = config;
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
-    const attachments = mails.flatMap(mail => mail.attachments);
-    await Promise.all(attachments.map(async att => {
-      const filepath = path.join(outputDir, att.filename);
-      await fs.promises.writeFile(filepath, att.content);
+
+    await Promise.all(mails.flatMap(mail => {
+      // 获取邮件日期，如果无效则使用当前日期
+      const mailDate = mail.date ? new Date(mail.date) : new Date();
+      
+      // 格式化月和日
+      const month = String(mailDate.getMonth() + 1).padStart(2, '0');
+      const day = String(mailDate.getDate()).padStart(2, '0');
+      
+      return mail.attachments.map(async att => {
+        let targetDir = outputDir;
+        
+        // 如果需要分类，创建日期子文件夹
+        if (needClassified) {
+          targetDir = path.join(outputDir, `${month}-${day}`);
+          if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+          }
+        }
+
+        const filepath = path.join(targetDir, att.filename);
+        await fs.promises.writeFile(filepath, att.content);
+      });
     }));
+
     console.log('附件下载完成');
   }
 }
