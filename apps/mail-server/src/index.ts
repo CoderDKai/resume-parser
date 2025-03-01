@@ -15,9 +15,7 @@ async function main() {
   const client = new ImapClient(config);
   try {
     await client.connect();
-    const mails = await client.getMailList('简历', {
-      limit: 1,
-    });
+    const mails = await client.getMailList('简历');
     await client.downloadAttachments(mails);
   } catch (error) {
     console.error('获取邮件列表失败:', error);

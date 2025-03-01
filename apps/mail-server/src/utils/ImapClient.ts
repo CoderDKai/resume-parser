@@ -132,59 +132,6 @@ export class ImapClient {
     return searchCriteria;
   }
 
-  // 解析 RFC2047 编码
-  private decodeRFC2047(encoded: string): string {
-    const parts = encoded.split(/(?=\=\?[A-Za-z0-9-]+\?[BQ]\?)/);
-    let decoded = '';
-
-    for (const part of parts) {
-      const match = part.match(/=\?(.+?)\?([BQ])\?(.+?)\?=/);
-      if (!match) {
-        decoded += part;
-        continue;
-      }
-
-      const [, charset, encoding, content] = match;
-      if (encoding.toUpperCase() === 'B') {
-        decoded += Buffer.from(content, 'base64').toString(charset.toLowerCase() === 'utf-8' ? 'utf8' : 'ascii');
-      } else if (encoding.toUpperCase() === 'Q') {
-        decoded += content.replace(/=([0-9A-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-      }
-    }
-
-    return decoded.trim();
-  }
-
-  // 查找附件
-  private findAttachments(struct: any[], attachments: { filename?: string; contentType: string; size: number; partID: string; content: Buffer }[]) {
-    const processPart = (part: any) => {
-      if (Array.isArray(part)) {
-        part.forEach(subPart => processPart(subPart)); // 递归处理嵌套数组
-      } else if (part && typeof part === 'object') {
-        // 只处理真正的附件部分
-        if (part.disposition?.type?.toUpperCase() === 'ATTACHMENT' && part.partID) {
-          let rawFilename = part.params?.filename || part.params?.name;
-          const filename = rawFilename && rawFilename !== '/' 
-            ? this.decodeRFC2047(rawFilename) 
-            : undefined;
-          attachments.push({
-            filename,
-            contentType: `${part.type}/${part.subtype}`,
-            size: part.size || 0,
-            partID: part.partID,
-            content: part.content,
-          });
-        }
-        // 如果有子部分，继续递归
-        if (part.parts) {
-          processPart(part.parts);
-        }
-      }
-    };
-
-    struct.forEach(part => processPart(part));
-  }
-
   // 获取邮件列表
   public async getMailList(folderName: string = 'INBOX', filterParams: FilterParams = {}): Promise<Mail[]> {
     const { limit } = filterParams;
@@ -263,10 +210,6 @@ export class ImapClient {
     })
   }
 
-  // 清理文件名中的非法字符
-  private sanitizeFilename(name: string): string {
-    return name.replace(/[<>:;"\/\\|?*]+/g, '_').substring(0, 100);
-  }
   // 下载邮件列表中的附件
   // 修改 downloadAttachments，使用解析后的附件内容
   public async downloadAttachments(mails: Mail[], outputDir: string = './attachments'): Promise<void> {
@@ -279,20 +222,13 @@ export class ImapClient {
         continue;
       }
 
-      for (const att of mail.attachments) {
-        try {
-          const content = att.content; // 直接使用解析后的内容
-          const filename = att.filename && att.filename !== '/' 
-            ? att.filename 
-            : `attachment_${mail.uid}_${Date.now()}`; // 避免重复，使用时间戳
-          const safeFilename = this.sanitizeFilename(filename);
-          const filepath = path.join(outputDir, safeFilename);
-
-          fs.writeFileSync(filepath, content);
-        } catch (err) {
-          console.error(`保存附件失败（邮件 #${mail.seqNo}，${att.filename}）:`, err);
-        }
-      }
+      await Promise.all(mails.flatMap(mail => 
+        mail.attachments.map(async att => {
+          const filepath = path.join(outputDir, att.filename);
+          await fs.promises.writeFile(filepath, att.content);
+        })
+      ));
     }
+    console.log('附件下载完成');
   }
 }
