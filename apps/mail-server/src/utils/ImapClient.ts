@@ -203,7 +203,7 @@ export class ImapClient {
             // 添加短暂延迟以确保所有消息都已处理
             setTimeout(() => {
               resolve(mails);
-            }, 100);
+            }, 1000);
           });
         })
       })
@@ -216,19 +216,11 @@ export class ImapClient {
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
-
-    for (const mail of mails) {
-      if (!mail.attachments || mail.attachments.length === 0) {
-        continue;
-      }
-
-      await Promise.all(mails.flatMap(mail => 
-        mail.attachments.map(async att => {
-          const filepath = path.join(outputDir, att.filename);
-          await fs.promises.writeFile(filepath, att.content);
-        })
-      ));
-    }
+    const attachments = mails.flatMap(mail => mail.attachments);
+    await Promise.all(attachments.map(async att => {
+      const filepath = path.join(outputDir, att.filename);
+      await fs.promises.writeFile(filepath, att.content);
+    }));
     console.log('附件下载完成');
   }
 }
