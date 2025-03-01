@@ -1,0 +1,17 @@
+{
+  "name": "my-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "start:mail-server": "turbo run start --filter=@resume-parser/mail-server"
+  },
+  "devDependencies": {
+    "turbo": "latest",
+    "typescript": "^5.8.2"
+  }
+}
